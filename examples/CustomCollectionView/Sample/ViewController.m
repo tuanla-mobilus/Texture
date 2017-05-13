@@ -47,9 +47,10 @@ static NSUInteger kNumberOfImages = 14;
   layout.headerHeight = 44.0;
   
   _collectionNode = [[ASCollectionNode alloc] initWithCollectionViewLayout:layout];
+  _collectionNode.backgroundColor = [UIColor whiteColor];
   _collectionNode.dataSource = self;
   _collectionNode.delegate = self;
-  _collectionNode.backgroundColor = [UIColor whiteColor];
+  _collectionNode.layoutInspector = self;
   
   if (!(self = [super initWithNode:_collectionNode]))
     return nil;
@@ -74,7 +75,6 @@ static NSUInteger kNumberOfImages = 14;
 {
   [super viewDidLoad];
   
-  _collectionNode.view.layoutInspector = self;
   [_collectionNode.view registerClass:[ImageCollectionViewCell class] forCellWithReuseIdentifier:kReuseIdentifier];
 }
 
