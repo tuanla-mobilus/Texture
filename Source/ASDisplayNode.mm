@@ -1544,7 +1544,7 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
   static std::atomic<int32_t> gNextTransitionID;
   int32_t newTransitionID = gNextTransitionID.fetch_add(1) + 1;
   _transitionID = newTransitionID;
-  return newTransitionID;;
+  return newTransitionID;
 }
 
 - (void)_layoutTransitionMeasurementDidFinish
