@@ -1418,7 +1418,7 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
   int32_t transitionID = [self _startNewTransition];
   // NOTE: This block captures self. It's cheaper than hitting the weak table.
   asdisplaynode_iscancelled_block_t isCancelled = ^{
-    return _transitionID != transitionID;
+    return (BOOL)(_transitionID != transitionID);
   };
   
   // Move all subnodes in layout pending state for this transition
