@@ -1453,6 +1453,10 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
       ASLayoutElementClearCurrentContext();
     }
     
+    if (isCancelled()) {
+      return;
+    }
+    
     ASPerformBlockOnMainThread(^{
       if (isCancelled()) {
         return;
