@@ -921,7 +921,7 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
     
     // If a current layout transition is in progress there is no need to do a measurement and layout pass in here as
     // this is supposed to happen within the layout transition process
-    if (_transitionInProgress) {
+    if (_transitionID != ASLayoutElementContextInvalidTransitionID) {
       return;
     }
     
@@ -1416,17 +1416,21 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
   
   // Every new layout transition has a transition id associated to check in subsequent transitions for cancelling
   int32_t transitionID = [self _startNewTransition];
+  // NOTE: This block captures self. It's cheaper than hitting the weak table.
+  asdisplaynode_iscancelled_block_t isCancelled = ^{
+    return _transitionID != transitionID;
+  };
   
   // Move all subnodes in layout pending state for this transition
   ASDisplayNodePerformBlockOnEverySubnode(self, NO, ^(ASDisplayNode * _Nonnull node) {
-    ASDisplayNodeAssert([node _isTransitionInProgress] == NO, @"Can't start a transition when one of the subnodes is performing one.");
+    ASDisplayNodeAssert(node->_transitionID == ASLayoutElementContextInvalidTransitionID, @"Can't start a transition when one of the subnodes is performing one.");
     node.hierarchyState |= ASHierarchyStateLayoutPending;
-    node.pendingTransitionID = transitionID;
+    node->_pendingTransitionID = transitionID;
   });
   
   // Transition block that executes the layout transition
   void (^transitionBlock)(void) = ^{
-    if ([self _shouldAbortTransitionWithID:transitionID]) {
+    if (isCancelled()) {
       return;
     }
     
@@ -1449,21 +1453,17 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
       ASLayoutElementClearCurrentContext();
     }
     
-    if ([self _shouldAbortTransitionWithID:transitionID]) {
-      return;
-    }
-    
     ASPerformBlockOnMainThread(^{
+      if (isCancelled()) {
+        return;
+      }
+      
       ASLayoutTransition *pendingLayoutTransition;
       _ASTransitionContext *pendingLayoutTransitionContext;
       {
         // Grab __instanceLock__ here to make sure this transition isn't invalidated
         // right after it passed the validation test and before it proceeds
         ASDN::MutexLocker l(__instanceLock__);
-        
-        if ([self _locked_shouldAbortTransitionWithID:transitionID]) {
-          return;
-        }
         
         // Update calculated layout
         auto previousLayout = _calculatedDisplayNodeLayout;
@@ -1518,25 +1518,12 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
 
 - (void)cancelLayoutTransition
 {
-  __instanceLock__.lock();
-  BOOL transitionInProgress = _transitionInProgress;
-  __instanceLock__.unlock();
-  
-  if (transitionInProgress) {
-    // Cancel transition in progress
-    [self _finishOrCancelTransition];
-      
+  if ([self _finishOrCancelTransition]) {
     // Tell subnodes to exit layout pending state and clear related properties
     ASDisplayNodePerformBlockOnEverySubnode(self, NO, ^(ASDisplayNode * _Nonnull node) {
       node.hierarchyState &= (~ASHierarchyStateLayoutPending);
     });
   }
-}
-
-- (BOOL)_isTransitionInProgress
-{
-  ASDN::MutexLocker l(__instanceLock__);
-  return _transitionInProgress;
 }
 
 - (BOOL)_isLayoutTransitionInvalid
@@ -1554,10 +1541,10 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
 /// Starts a new transition and returns the transition id
 - (int32_t)_startNewTransition
 {
-  ASDN::MutexLocker l(__instanceLock__);
-  _transitionInProgress = YES;
-  _transitionID = OSAtomicAdd32(1, &_transitionID);
-  return _transitionID;
+  static std::atomic<int32_t> gNextTransitionID;
+  int32_t newTransitionID = gNextTransitionID.fetch_add(1) + 1;
+  _transitionID = newTransitionID;
+  return newTransitionID;;
 }
 
 - (void)_layoutTransitionMeasurementDidFinish
@@ -1565,34 +1552,11 @@ static ASDisplayNodeMethodOverrides GetASDisplayNodeMethodOverrides(Class c)
   // No-Op in ASDisplayNode
 }
 
-- (void)_finishOrCancelTransition
+/// Returns NO if there was no transition to cancel/finish.
+- (BOOL)_finishOrCancelTransition
 {
-  ASDN::MutexLocker l(__instanceLock__);
-  _transitionInProgress = NO;
-}
-
-- (void)setPendingTransitionID:(int32_t)pendingTransitionID
-{
-  ASDN::MutexLocker l(__instanceLock__);
-  ASDisplayNodeAssertTrue(_pendingTransitionID < pendingTransitionID);
-  _pendingTransitionID = pendingTransitionID;
-}
-  
-- (int32_t)pendingTransitionID
-{
-  ASDN::MutexLocker l(__instanceLock__);
-  return _pendingTransitionID;
-}
-
-- (BOOL)_shouldAbortTransitionWithID:(int32_t)transitionID
-{
-  ASDN::MutexLocker l(__instanceLock__);
-  return [self _locked_shouldAbortTransitionWithID:transitionID];
-}
-
-- (BOOL)_locked_shouldAbortTransitionWithID:(int32_t)transitionID
-{
-  return (!_transitionInProgress || _transitionID != transitionID);
+  int32_t oldValue = _transitionID.exchange(ASLayoutElementContextInvalidTransitionID);
+  return oldValue != ASLayoutElementContextInvalidTransitionID;
 }
 
 - (void)setDefaultLayoutTransitionDuration:(NSTimeInterval)defaultLayoutTransitionDuration
@@ -2528,7 +2492,7 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
       // This is especially important as with automatic subnode management, adding subnodes can happen while a transition
       // is in fly
       if (ASHierarchyStateIncludesLayoutPending(stateToEnterOrExit)) {
-        int32_t pendingTransitionId = newSupernode.pendingTransitionID;
+        int32_t pendingTransitionId = newSupernode->_pendingTransitionID;
         if (pendingTransitionId != ASLayoutElementContextInvalidTransitionID) {
           {
             ASDN::MutexLocker l(__instanceLock__);
@@ -2536,7 +2500,7 @@ ASDISPLAYNODE_INLINE BOOL subtreeIsRasterized(ASDisplayNode *node) {
             
             // Propagate down the new pending transition id
             ASDisplayNodePerformBlockOnEverySubnode(self, NO, ^(ASDisplayNode * _Nonnull node) {
-              node.pendingTransitionID = pendingTransitionId;
+              node->_pendingTransitionID = pendingTransitionId;
             });
           }
         }
