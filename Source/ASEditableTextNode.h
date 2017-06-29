@@ -53,6 +53,18 @@ NS_ASSUME_NONNULL_BEGIN
 #pragma mark - Configuration
 
 /**
+ @abstract Enable editing on the textView
+ @default true
+ */
+@property(nonatomic,getter=isEditable) BOOL editable __TVOS_PROHIBITED;
+
+/**
+ @abstract Enable selecting on the textView
+ @default true
+ */
+@property(nonatomic,getter=isSelectable) BOOL selectable NS_AVAILABLE_IOS(7_0); // toggle selectability, which controls the ability of the user to select content and interact with URLs & attachments
+
+/**
  @abstract Enable scrolling on the textView
  @default true
  */

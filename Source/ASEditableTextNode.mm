@@ -162,6 +162,8 @@
     return nil;
 
   _displayingPlaceholder = YES;
+  _editable = YES;
+  _selectable = YES;
   _scrollEnabled = YES;
 
   // Create the scaffolding for the text view.
@@ -232,8 +234,9 @@
   _textKitComponents.textView.scrollEnabled = _scrollEnabled;
   _textKitComponents.textView.delegate = self;
   #if TARGET_OS_IOS
-  _textKitComponents.textView.editable = YES;
+  _textKitComponents.textView.editable = _editable;
   #endif
+  _textKitComponents.textView.selectable = _selectable;
   _textKitComponents.textView.typingAttributes = _typingAttributes;
   _textKitComponents.textView.accessibilityHint = _placeholderTextKitComponents.textStorage.string;
   configureTextView(_textKitComponents.textView);
@@ -320,6 +323,18 @@
 
 #pragma mark - Configuration
 @synthesize delegate = _delegate;
+
+- (void)setEditable:(BOOL)editable {
+  ASDN::MutexLocker l(_textKitLock);
+  _editable = editable;
+  [_textKitComponents.textView setEditable:_editable];
+}
+
+- (void)setSelectable:(BOOL)selectable {
+  ASDN::MutexLocker l(_textKitLock);
+  _selectable = selectable;
+  [_textKitComponents.textView setSelectable:_selectable];
+}
 
 - (void)setScrollEnabled:(BOOL)scrollEnabled
 {
