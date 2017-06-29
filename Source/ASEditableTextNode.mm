@@ -134,6 +134,9 @@
   // UITextInputTraits
   ASDN::RecursiveMutex _textInputTraitsLock;
   _ASTextInputTraitsPendingState *_textInputTraits;
+  
+  // Custom UITextView block
+  ASEditableTextNodeCustomTextViewBlock _customTextViewBlock;
 
   // Misc. State.
   BOOL _displayingPlaceholder; // Defaults to YES.
@@ -175,6 +178,15 @@
   // Create the placeholder scaffolding.
   _placeholderTextKitComponents = placeholderTextKitComponents;
   _placeholderTextKitComponents.layoutManager.delegate = self;
+  
+  return self;
+}
+
+- (instancetype)initWithCustomUITextViewClass:(ASEditableTextNodeCustomTextViewBlock)block {
+  if (!(self = [self init]))
+    return nil;
+  
+  [self setCustomTextViewBlock:block];
   
   return self;
 }
@@ -230,7 +242,11 @@
   configureTextView(_placeholderTextKitComponents.textView);
 
   // Create and configure our text view.
-  _textKitComponents.textView = [[ASPanningOverriddenUITextView alloc] initWithFrame:CGRectZero textContainer:_textKitComponents.textContainer];
+  if (_customTextViewBlock) {
+    _textKitComponents.textView = _customTextViewBlock(_textKitComponents.textContainer);
+  } else {
+    _textKitComponents.textView = [[ASPanningOverriddenUITextView alloc] initWithFrame:CGRectZero textContainer:_textKitComponents.textContainer];
+  }
   _textKitComponents.textView.scrollEnabled = _scrollEnabled;
   _textKitComponents.textView.delegate = self;
   #if TARGET_OS_IOS
@@ -856,6 +872,12 @@
 {
   if ([_delegate respondsToSelector:@selector(editableTextNodeDidFinishEditing:)])
     [_delegate editableTextNodeDidFinishEditing:self];
+}
+
+#pragma mark - Custom UITextView
+- (void)setCustomTextViewBlock:(ASEditableTextNodeCustomTextViewBlock)block {
+  ASDisplayNodeAssertFalse(self.nodeLoaded);
+  _customTextViewBlock = block;
 }
 
 @end

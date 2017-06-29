@@ -23,6 +23,8 @@ NS_ASSUME_NONNULL_BEGIN
 @protocol ASEditableTextNodeDelegate;
 @class ASTextKitComponents;
 
+typedef UITextView * _Nonnull(^ASEditableTextNodeCustomTextViewBlock)(NSTextContainer *textContainer);
+
 /**
  @abstract Implements a node that supports text editing.
  @discussion Does not support layer backing.
@@ -46,6 +48,13 @@ NS_ASSUME_NONNULL_BEGIN
  */
 - (instancetype)initWithTextKitComponents:(ASTextKitComponents *)textKitComponents
              placeholderTextKitComponents:(ASTextKitComponents *)placeholderTextKitComponents;
+
+/**
+ * @abstract Initializes an editable text node using default TextKit components and custom UITextView initializes block
+ *
+ * @return An initialized ASEditableTextNode.
+ */
+- (instancetype)initWithCustomUITextViewClass:(ASEditableTextNodeCustomTextViewBlock)block;
 
 //! @abstract The text node's delegate, which must conform to the <ASEditableTextNodeDelegate> protocol.
 @property (nonatomic, readwrite, weak) id <ASEditableTextNodeDelegate> delegate;
@@ -150,6 +159,16 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readwrite, assign) UIReturnKeyType returnKeyType;                       // default is UIReturnKeyDefault (See note under UIReturnKeyType enum)
 @property(nonatomic, readwrite, assign) BOOL enablesReturnKeyAutomatically;                  // default is NO (when YES, will automatically disable return key when text widget has zero-length contents, and will automatically enable when text widget has non-zero-length contents)
 @property(nonatomic, readwrite, assign, getter=isSecureTextEntry) BOOL secureTextEntry;      // default is NO
+
+#pragma mark - Custom UITextView
+/**
+ * @abstract Set custom UITextView initializes block.
+ *
+ * @param layerBlock The block that creates a layer for this node.
+ *
+ * @precondition The node is not yet loaded.
+ */
+- (void)setCustomTextViewBlock:(ASEditableTextNodeCustomTextViewBlock)block;
 
 @end
 
