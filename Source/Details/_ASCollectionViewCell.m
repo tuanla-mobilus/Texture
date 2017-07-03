@@ -19,7 +19,54 @@
 #import "ASCellNode+Internal.h"
 #import <AsyncDisplayKit/AsyncDisplayKit.h>
 
+static NSMutableSet *_asCollectionViewCellCustomAction = nil;
+
 @implementation _ASCollectionViewCell
+
+#pragma mark - Custom Action
++ (void)initialize {
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    _asCollectionViewCellCustomAction = [NSMutableSet new];
+  });
+}
+
++ (void)registerCustomMenuAction:(SEL)action
+{
+  [_asCollectionViewCellCustomAction addObject:NSStringFromSelector(action)];
+}
+
+- (void)forwardInvocation:(NSInvocation *)anInvocation
+{
+  if ([_asCollectionViewCellCustomAction containsObject:NSStringFromSelector(anInvocation.selector)]) {
+    __unsafe_unretained id sender;
+    [anInvocation getArgument:&sender atIndex:0];
+    if ([self.node conformsToProtocol:@protocol(ASCellNodeCustomAction)]) {
+      [((ASCellNode<ASCellNodeCustomAction> *) self.node) performCustomAction:anInvocation.selector withSender:sender];
+    }
+  }
+  else {
+    [super forwardInvocation:anInvocation];
+  }
+}
+
+- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector
+{
+  if ([_asCollectionViewCellCustomAction containsObject:NSStringFromSelector(aSelector)]) {
+    return [NSMethodSignature signatureWithObjCTypes:"v@:@"];
+  }
+  
+  return [super methodSignatureForSelector:aSelector];
+}
+
+- (BOOL)respondsToSelector:(SEL)aSelector
+{
+  if ([_asCollectionViewCellCustomAction containsObject:NSStringFromSelector(aSelector)]) {
+    return YES;
+  }
+  
+  return [super respondsToSelector:aSelector];
+}
 
 - (void)setNode:(ASCellNode *)node
 {

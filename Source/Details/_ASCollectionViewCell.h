@@ -26,6 +26,9 @@ AS_SUBCLASSING_RESTRICTED
 @interface _ASCollectionViewCell : UICollectionViewCell
 @property (nonatomic, weak) ASCellNode *node;
 @property (nonatomic, strong, nullable) UICollectionViewLayoutAttributes *layoutAttributes;
+
++ (void)registerCustomMenuAction:(SEL)action;
+
 @end
 
 NS_ASSUME_NONNULL_END

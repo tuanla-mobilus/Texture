@@ -17,6 +17,12 @@
 
 #import <AsyncDisplayKit/ASDisplayNode.h>
 
+@protocol ASCellNodeCustomAction <NSObject>
+
+- (void)performCustomAction:(SEL _Nonnull)customAction withSender:(id _Nullable)sender;
+
+@end
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class ASCellNode, ASTextNode;
